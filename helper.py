@@ -14,13 +14,20 @@ ANNUAL_CALENDAR_HOURS = 365 * 24
 ANNUAL_TRADING_HOURS = 252 * 6.5
 
 
-def load_data(date, ticker='NVDA', data_dir='data/raw'):
+def load_data(date, ticker='NVDA', data_dir='data/raw', *, window='close'):
     """Return (option_quotes, definitions, equity_quotes) from existing files."""
     import databento as db
     day = pd.Timestamp(date).strftime('%Y-%m-%d')
-    paths = [Path(data_dir) / f'{ticker}_{dataset}_{schema}_{day}.dbn.zst'
-             for dataset, schema in [('opra.pillar','cbbo-1m'),
-                                     ('opra.pillar','definition'), ('equs.mini','bbo-1m')]]
+    if window == 'close':
+        paths = [Path(data_dir) / f'{ticker}_{dataset}_{schema}_{day}.dbn.zst'
+                 for dataset, schema in [('opra.pillar','cbbo-1m'),
+                                         ('opra.pillar','definition'), ('equs.mini','bbo-1m')]]
+    elif window == 'open':
+        from download_data import build_requests
+
+        paths = [path for path, _ in build_requests(day, ticker, data_dir, window=window)]
+    else:
+        raise ValueError("window must be 'open' or 'close'")
     for path in paths:
         if not path.is_file():
             raise FileNotFoundError(path)

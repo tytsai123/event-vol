@@ -8,8 +8,8 @@ import pandas as pd
 import pandas_market_calendars as mcal
 
 
-def build_requests(date, ticker='NVDA', data_dir='data/raw'):
-    """Build the original three requests; use actual US session close."""
+def build_requests(date, ticker='NVDA', data_dir='data/raw', *, window='close'):
+    """Build quote requests for the selected window and one shared definition file."""
     day = pd.Timestamp(date).strftime('%Y-%m-%d')
     ticker = ticker.upper().strip()
     if not ticker or not ticker.replace('.', '').replace('-', '').isalnum():
@@ -17,23 +17,35 @@ def build_requests(date, ticker='NVDA', data_dir='data/raw'):
     schedule = mcal.get_calendar('NYSE').schedule(start_date=day, end_date=day)
     if schedule.empty:
         raise ValueError(f'{day} is not a US equity trading day')
-    close = schedule.iloc[0]['market_close'].tz_convert('UTC')
-    start = close - pd.Timedelta(minutes=30)
+    session = schedule.iloc[0]
+    minute = pd.Timedelta(minutes=1)
+    if window == 'close':
+        end = session['market_close'].tz_convert('UTC')
+        start = end - 30 * minute
+        suffix = ''
+    elif window == 'open':
+        market_open = session['market_open'].tz_convert('UTC')
+        # BBO timestamps mark interval ends and Databento's request end is exclusive.
+        start = market_open + minute
+        end = market_open + 31 * minute
+        suffix = '_open_30m'
+    else:
+        raise ValueError("window must be 'open' or 'close'")
     midnight = pd.Timestamp(day, tz='UTC')
     specs = [
-        ('OPRA.PILLAR', 'cbbo-1m', ticker + '.OPT', 'parent', start, close),
+        ('OPRA.PILLAR', 'cbbo-1m', ticker + '.OPT', 'parent', start, end, suffix),
         ('OPRA.PILLAR', 'definition', ticker + '.OPT', 'parent', midnight,
-         midnight + pd.Timedelta(days=1)),
-        ('EQUS.MINI', 'bbo-1m', ticker, 'raw_symbol', start, close),
+         midnight + pd.Timedelta(days=1), ''),
+        ('EQUS.MINI', 'bbo-1m', ticker, 'raw_symbol', start, end, suffix),
     ]
-    return [(Path(data_dir) / f'{ticker}_{dataset.lower()}_{schema}_{day}.dbn.zst',
+    return [(Path(data_dir) / f'{ticker}_{dataset.lower()}_{schema}_{day}{tag}.dbn.zst',
              dict(dataset=dataset, schema=schema, symbols=[symbol], stype_in=stype,
                   start=a.isoformat(), end=b.isoformat()))
-            for dataset, schema, symbol, stype, a, b in specs]
+            for dataset, schema, symbol, stype, a, b, tag in specs]
 
 
 def download_data(date, ticker='NVDA', data_dir='data/raw', *,
-                  confirm=True, dry_run=False, max_cost=None, client=None):
+                  confirm=True, dry_run=False, max_cost=None, client=None, window='close'):
     """Estimate missing-file costs, then download after explicit confirmation.
 
     dry_run=True: estimate only. confirm=False: skip prompt (requires max_cost).
@@ -41,7 +53,7 @@ def download_data(date, ticker='NVDA', data_dir='data/raw', *,
     Existing nonempty files are skipped, not overwritten. Returns a status table.
     client: optional injected Historical client for testing.
     """
-    requests = build_requests(date, ticker, data_dir)
+    requests = build_requests(date, ticker, data_dir, window=window)
     if max_cost is not None and (not math.isfinite(max_cost) or max_cost < 0):
         raise ValueError('max_cost must be finite and nonnegative')
     rows = []
@@ -107,9 +119,11 @@ if __name__ == '__main__':
     parser.add_argument('date')
     parser.add_argument('--ticker', default='NVDA')
     parser.add_argument('--data-dir', default='data/raw')
+    parser.add_argument('--window', choices=('close', 'open'), default='close')
     parser.add_argument('--dry-run', action='store_true')
     parser.add_argument('--max-cost', type=float)
     parser.add_argument('--yes', action='store_true')
     args = parser.parse_args()
     print(download_data(args.date, args.ticker, args.data_dir, confirm=not args.yes,
-                        dry_run=args.dry_run, max_cost=args.max_cost).to_string(index=False))
+                        dry_run=args.dry_run, max_cost=args.max_cost,
+                        window=args.window).to_string(index=False))

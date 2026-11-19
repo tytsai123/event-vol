@@ -10,9 +10,9 @@ data/raw/
 __pycache__/
 .venv/
 
-# Jupyter
+# Local research
+/experiments/
 .ipynb_checkpoints/
-notebooks/
 
 # Editor settings
 .vscode/

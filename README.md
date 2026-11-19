@@ -14,6 +14,8 @@ The OLS interpretation assumes that the fitted expiries span the announcement, o
 
 ### Near-term volatility around the August announcement
 
+The charts and variance comparisons use the last valid ATM snapshot available in each session's downloaded close window. For August 25–27, those snapshots were all stamped 15:59 ET.
+
 ![Four panels showing NVDA ATM IV, total variance, skew, and curvature for August 25–27](assets/nvda-august-near-term-volatility.png)
 
 - ATM IV was higher near the August 26 close than on August 25 and dropped sharply on August 27. The shortest expiries showed the largest changes.

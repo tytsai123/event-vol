@@ -31,6 +31,40 @@ The OLS interpretation assumes that the fitted expiries span the announcement, o
 
 Run the commands from the repository root. [event-vol.ipynb](event-vol.ipynb) reads local files from `data/raw/`.
 
+### Replay option strategies
+
+Use `event-backtest.py` for earnings released after the regular close. It reads local
+T−1 and T close-window files and T+1 open-window files. Specify multiple events
+with repeated `--event` flags. The example replays both implied-move short
+straddles, the bullish risk reversal, and equal-width call butterflies centered
+at the two implied-move targets.
+
+```powershell
+& .\.venv-event-vol\Scripts\python.exe event-backtest.py --ticker NVDA --event 2026-08-26 --strategy straddle --strategy risk-reversal --strategy butterfly --center up --center down --delta-hedge --output-dir experiments/nvda-backtest
+```
+
+- `trades.csv` records priced and unpriced setups, fill P&L, stock hedge P&L,
+  fees, and total and earnings-gap attribution. `legs.csv` records the contracts,
+  signed quantities, fills, and individual attribution. `summary.csv` groups priced
+  trades by event, strategy, expiry, and entry time.
+- The default entries are 30 and 15 minutes before T−1 and T close. The exit is
+  the first common executable minute in the first half-hour of T+1. Buys cross
+  the ask and sells cross the bid, sized to the leg ratio. Butterfly wings are
+  symmetric around the selected strike. The default target wing width is
+  `center * sinh(implied_move)`; `--wing-width` requires an exact width in USD.
+- Vega is repriced sequentially through ATM IV, skew, smile curvature, and
+  the bid-mark IV residual at fixed new spot and variance time. Skew and
+  curvature include the change in the contract's forward moneyness. When a
+  surface is missing or a counterfactual IV is negative, only the affected
+  period's finer breakdown is omitted; Vega and execution P&L remain available.
+- The CLI assumes a standard 100-share contract, Black–76 with a 4% rate and
+  0.4 off-hours variance weight, executable displayed quotes, and zero
+  financing and borrow costs. `--fees` sets the additional round-trip USD cost
+  per structure.
+
+Run `test_backtest.py` with the same Python environment to check multi-leg
+fills, butterfly sizing, stock hedge P&L, and attribution reconciliation.
+
 ### 1. Create the environment
 
 ```powershell

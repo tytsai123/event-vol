@@ -13,6 +13,8 @@ from helpers.backtest import Backtest, Strategy, FACTORS, VOL_FACTORS
 from helpers.earnings_event import event_sessions
 from helpers import event_vol_research as h
 
+DEFAULT_EXIT_MINUTES = 5
+
 
 class Surfaces:
     """Fit only the timestamp/expiry cross-sections requested by the replay."""
@@ -72,7 +74,7 @@ class Surfaces:
 
 
 def run_event(ticker, dates, closes, data_dir, strategies, *, entry_phases, entry_minutes,
-              max_dte, delta_hedge, fees, vol_breakdown):
+              max_dte, delta_hedge, fees, vol_breakdown, exit_minutes=DEFAULT_EXIT_MINUTES):
     prior, event, following = dates
     windows = [(event, "close"), (following, "open")]
     if "T-1" in entry_phases:
@@ -86,9 +88,11 @@ def run_event(ticker, dates, closes, data_dir, strategies, *, entry_phases, entr
         start_date=prior, end_date=max(pd.Timestamp(following).date(), quotes.expiration.max().date()),
     )
     market_open = schedule.at[pd.Timestamp(following), "market_open"]
-    exit_start = market_open + pd.Timedelta(minutes=1)
+    exit_start = market_open + pd.Timedelta(minutes=exit_minutes)
     exit_end = market_open + pd.Timedelta(minutes=30)
     event_time = closes.iloc[1] + pd.Timedelta(1, unit="ns")
+    # Use the same first post-event minute for the gap marks and exit fills.
+    quotes = quotes.loc[quotes.ts_recv.lt(event_time) | quotes.ts_recv.ge(exit_start)]
     surfaces = Surfaces(quotes, schedule)
     engine = Backtest(quotes, schedule, surface=surfaces.components if vol_breakdown else None)
     for phase, close in zip(("T-1", "T"), closes.iloc[:2], strict=True):
@@ -141,6 +145,8 @@ def main():
                         help="Exact butterfly wing width in USD. Default: implied-move width.")
     parser.add_argument("--entry-phase", choices=("T-1", "T"), action="append")
     parser.add_argument("--entry-minutes", type=int, action="append")
+    parser.add_argument("--exit-minutes", type=int, choices=range(1, 31), default=DEFAULT_EXIT_MINUTES,
+                        metavar="MINUTES", help="Minutes after the open to start looking for fills (default: 5).")
     parser.add_argument("--max-dte", type=float, default=31)
     parser.add_argument("--delta-hedge", action="store_true")
     parser.add_argument("--fees", type=float, default=0.0, help="Total round-trip USD per structure.")
@@ -174,7 +180,7 @@ def main():
                 ticker, dates, closes, args.data_dir, strategies,
                 entry_phases=args.entry_phase or ("T-1", "T"), entry_minutes=entry_minutes,
                 max_dte=args.max_dte, delta_hedge=args.delta_hedge, fees=args.fees,
-                vol_breakdown=not args.no_vol_breakdown,
+                vol_breakdown=not args.no_vol_breakdown, exit_minutes=args.exit_minutes,
             ):
                 parts.append(trades)
                 if not legs.empty:

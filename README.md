@@ -33,40 +33,6 @@ The charts and variance comparisons use the last valid ATM snapshot available in
 
 Run the commands from the repository root. [event-vol.ipynb](notebooks/event-vol.ipynb) reads local files from `data/raw/`. The reusable research and backtest modules are under `helpers/`. The executable backtest example is [event-backtest.ipynb](notebooks/event-backtest.ipynb).
 
-### Replay option strategies
-
-Use `helpers.event_backtest` for earnings released after the regular close. It reads local
-T−1 and T close-window files and T+1 open-window files. Specify multiple events
-with repeated `--event` flags. The example replays both implied-move short
-straddles, the bullish risk reversal, and equal-width call butterflies centered
-at the two implied-move targets.
-
-```powershell
-& .\.venv-event-vol\Scripts\python.exe -m helpers.event_backtest --ticker NVDA --event 2026-08-26 --strategy straddle --strategy risk-reversal --strategy butterfly --center up --center down --delta-hedge --output-dir experiments/nvda-backtest
-```
-
-- `trades.csv` records priced and unpriced setups, fill P&L, stock hedge P&L,
-  fees, and total and earnings-gap attribution. `legs.csv` records the contracts,
-  signed quantities, fills, and individual attribution. `summary.csv` groups priced
-  trades by event, strategy, expiry, and entry time.
-- The default entries are 30 and 15 minutes before T−1 and T close. The exit is
-  the first common executable minute in the first half-hour of T+1. Buys cross
-  the ask and sells cross the bid, sized to the leg ratio. Butterfly wings are
-  symmetric around the selected strike. The default target wing width is
-  `center * sinh(implied_move)`; `--wing-width` requires an exact width in USD.
-- Vega is repriced sequentially through ATM IV, skew, smile curvature, and
-  the bid-mark IV residual at fixed new spot and variance time. Skew and
-  curvature include the change in the contract's forward moneyness. When a
-  surface is missing or a counterfactual IV is negative, only the affected
-  period's finer breakdown is omitted; Vega and execution P&L remain available.
-- The CLI assumes a standard 100-share contract, Black–76 with a 4% rate and
-  0.4 off-hours variance weight, executable displayed quotes, and zero
-  financing and borrow costs. `--fees` sets the additional round-trip USD cost
-  per structure.
-
-Run `& $python -m tests.test_backtest` with the same Python environment to check multi-leg
-fills, butterfly sizing, stock hedge P&L, and attribution reconciliation.
-
 ### 1. Create the environment
 
 ```powershell
@@ -127,7 +93,65 @@ bars.to_csv(path)
 
 Open [event-vol.ipynb](notebooks/event-vol.ipynb), select **Python 3.13 (Event Vol)**, and run the cells from top to bottom. The notebook builds the quote-derived estimates first, then plots the term structures, decomposes event variance, and compares the pre/post and OLS estimates with the realized jump. Run `& $python -m tests.test_helper` to check the synthetic pipeline, IV inversion, plots, and event-aware regression.
 
+### 5. Backtest strategies
+
+The backtest engine supports straddles, risk reversals, and butterflies. Open
+[event-backtest.ipynb](notebooks/event-backtest.ipynb) for a worked example of
+NVDA's August 26, 2026 earnings release, labeled 2026Q2 in this project.
+The notebook shows how to join quotes, select strikes, compare unhedged and
+delta-hedged P&L, and reconcile the Greek and Vega attribution.
+
+Use `helpers.event_backtest` for earnings released after the regular close.
+The example replays upside- and downside-target short straddles, a bullish
+risk reversal, and equal-width call butterflies at both implied-move targets.
+It uses the T−1 and T close windows and the T+1 open window. To prepare the
+additional opening quotes for this example, use the downloader below. It
+reuses the August 27 definition file from step 2.
+
+```powershell
+& $python -m helpers.download_data 2026-08-27 --ticker NVDA --window open
+```
+
+Run the example from the command line with the following command. Pass
+`--event` more than once to replay multiple dates.
+
+```powershell
+& .\.venv-event-vol\Scripts\python.exe -m helpers.event_backtest --ticker NVDA --event 2026-08-26 --strategy straddle --strategy risk-reversal --strategy butterfly --center up --center down --delta-hedge --output-dir experiments/nvda-backtest
+```
+
+- `trades.csv` records priced and unpriced setups, fill P&L, stock hedge P&L,
+  fees, and total and earnings-gap attribution. `legs.csv` records the contracts,
+  signed quantities, fills, and individual attribution. `summary.csv` groups priced
+  trades by event, strategy, expiry, and entry time.
+- The default entries are 30 and 15 minutes before T−1 and T close. The exit is
+  the first common executable minute in the first half-hour of T+1. Buys cross
+  the ask and sells cross the bid, sized to the leg ratio. Butterfly wings are
+  symmetric around the selected strike. The default target wing width is
+  `center * sinh(implied_move)`; `--wing-width` requires an exact width in USD.
+- Vega is repriced sequentially through ATM IV, skew, smile curvature, and
+  the bid-mark IV residual at fixed new spot and variance time. Skew and
+  curvature include the change in the contract's forward moneyness. When a
+  surface is missing or a counterfactual IV is negative, only the affected
+  period's finer breakdown is omitted; Vega and execution P&L remain available.
+- The CLI assumes a standard 100-share contract, Black–76 with a 4% rate and
+  0.4 off-hours variance weight, executable displayed quotes, and zero
+  financing and borrow costs. `--fees` sets the additional round-trip USD cost
+  per structure.
+
+Run `& $python -m tests.test_backtest` with the same Python environment to check multi-leg
+fills, butterfly sizing, stock hedge P&L, and attribution reconciliation.
+
+![Unhedged NVDA 2026Q2 strategy P&L by expiry and entry time](assets/nvda_2026q2_pnl_by_expiry.png)
+
+![NVDA 2026Q2 earnings-gap Greek P&L and the four Vega components](assets/nvda_2026q2_earnings_gap_attribution.png)
+
 ## Research Log
+
+### 2026-11-25
+
+1. **What I did.** Added a 30-minute opening quote window to the downloader and local loader, built a reusable earnings study, and excluded local experiment files from Git. Standardized the close analysis on the last valid ATM snapshot across the notebook's term structure, smiles, OLS, and pre/post comparisons. Added a backtest engine and a worked NVDA notebook with bid/ask execution, optional stock delta hedging, and trade- and leg-level Greek attribution. Split Vega into ATM vol, skew, smile curvature, and a residual, including a separate earnings-gap view. Grouped reusable Python modules, notebooks, and regression tests under `helpers/`, `notebooks/`, and `tests/`.
+2. **What I saw.** The new engine reproduced 906 legacy straddle and risk reversal replays across 14 NVDA earnings events. The 2026Q2 notebook priced and reconciled all 150 option structures, including 60 butterflies. Six downside butterflies had no usable entry bid-side IV for the lowest-strike call, so their unhedged P&L was available and their hedge result was missing. The replays within each earnings event share the same underlying move, so the NVDA example demonstrates execution and attribution without establishing a repeatable strategy edge.
+3. **What I will change next.** Evaluate results at the earnings-event level, separate spread costs from model-mark differences, and normalize position size across events. Define an ex-ante universe and validation rules before expanding to more stocks and testing whether implied moves are rich relative to historical earnings jumps.
 
 ### 2026-11-18
 

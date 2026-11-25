@@ -4,7 +4,36 @@ import numpy as np
 import pandas as pd
 
 from helpers.backtest import Backtest, Strategy, VOL_FACTORS, split_vega
+from helpers.event_backtest import Surfaces
 from helpers import event_vol_research as h
+
+
+def test_surface_curvature_conversion():
+    forward, strike = 100.0, 105.0
+    k = np.array([-.08, -.04, 0, .04, .08])
+    expiry = pd.Timestamp("2026-08-28", tz="UTC")
+    before = pd.Timestamp("2026-08-26 19:45Z")
+    after = pd.Timestamp("2026-08-27 13:31Z")
+    curves = pd.concat([
+        pd.DataFrame(dict(ts_recv=time, expiration=expiry, T_calendar=.01, T_variance=.01,
+                          forward=forward, log_forward_moneyness=k,
+                          mid_iv=.4 + coefficient * k**2, iv_spread=.01))
+        for time, coefficient in ((before, .6), (after, 1.4))
+    ])
+    features = h.extract_atm_features(curves).set_index(["ts_recv", "expiration"])
+    surfaces = Surfaces(curves, schedule=None)
+    surfaces.fit = lambda time, end: features.loc[(time, end), :]
+    old = surfaces.components(before, expiry)
+    new = surfaces.components(after, expiry)
+    np.testing.assert_allclose(features.atm_curvature, [1.2, 2.8])
+    np.testing.assert_allclose([old[2], new[2]], [.6, 1.4])
+
+    strike_k = np.log(strike / forward)
+    old_iv, new_iv = [.4 + coefficient * strike_k**2 for coefficient in (.6, 1.4)]
+    parts = split_vega(strike, "C", forward, (1.0, .01), old_iv, new_iv, old, new)
+    expected = h.black_price(forward, strike, 1.0, .01, new_iv, "C") - h.black_price(
+        forward, strike, 1.0, .01, old_iv, "C")
+    np.testing.assert_allclose(parts, [0, 0, expected, 0], atol=1e-10)
 
 
 def test_replays():
@@ -70,5 +99,6 @@ def test_replays():
 
 
 if __name__ == "__main__":
+    test_surface_curvature_conversion()
     test_replays()
     print("Multileg fills, hedge reconciliation, and Vega decomposition passed.")

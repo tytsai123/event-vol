@@ -46,7 +46,8 @@ class Surfaces:
         row = self.fit(timestamp, expiry)
         if row is None:
             return None
-        values = (row.atm_iv_quadratic, row.atm_skew, row.atm_curvature, row.forward)
+        # The surface stores the second derivative (2c); repricing uses c.
+        values = (row.atm_iv_quadratic, row.atm_skew, row.atm_curvature / 2, row.forward)
         return values if np.isfinite(values).all() else None
 
     def event_move(self, timestamp, event_time, max_dte):

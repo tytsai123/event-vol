@@ -8,25 +8,25 @@ This project studies options strategies that can be executed around earnings ann
 2. **Estimate ATM IV and total variance.** Invert Black–76 at the bid, mid, and ask. Fit a spread-weighted quadratic to out-of-the-money mid IVs near zero log-forward moneyness. The intercept is ATM IV, the linear coefficient measures skew, and the quadratic coefficient measures curvature. ATM total variance is `ATM IV² × variance time`.
 3. **Estimate event variance two ways.** The pre-earnings OLS fit models total variance as `event variance + base variance rate × variance time` for maturities up to 31 calendar days. Its intercept estimates event variance. The pre/post method matches expiries and subtracts normal variance decay from the change in total variance between the two snapshots. The implied earnings move is the square root of a nonnegative event variance estimate.
 
-The OLS interpretation assumes that the fitted expiries span the announcement, one earnings event contributes the same additive variance to those expiries, and the base variance rate is approximately constant across the fit window. The pre/post estimate also assumes the base variance rate stays stable between snapshots and that no other material shock drives the change. Since the post snapshot is taken near the next session's close, it can reflect repricing during that session. The variance clock weights non-trading hours at 0.4 relative to trading hours. The forward fit uses a fixed 4% discount rate, and European Black–76 approximates American equity options.
+The OLS interpretation assumes that the fitted expiries span the announcement, one earnings event contributes the same additive variance to those expiries, and the base variance rate is approximately constant across the fit window. The pre/post estimate also assumes the base variance rate stays stable between snapshots and that no other material shock drives the change. The post snapshot is five minutes after the next regular-session open, when the October 9 expiry's bid/ask spreads were narrower in this example. The variance clock weights non-trading hours at 0.4 relative to trading hours. The forward fit uses a fixed 4% discount rate, and European Black–76 approximates American equity options.
 
 ## Results
 
 ### Near-term volatility around the August announcement
 
-The charts and variance comparisons use the last valid ATM snapshot available in each session's downloaded close window. For August 25–27, those snapshots were all stamped 15:59 ET.
+The charts use the last valid close-window snapshots on August 25 and 26, both stamped 15:59 ET, and the 09:35 ET snapshot on August 27. The opening snapshot aligns the post-earnings smile with the start of the backtest's exit window.
 
 ![Four panels showing NVDA ATM IV, total variance, skew, and curvature for August 25–27](assets/nvda-august-near-term-volatility.png)
 
-- ATM IV was higher near the August 26 close than on August 25 and dropped sharply on August 27. The shortest expiries showed the largest changes.
-- Short-dated options had positive ATM skew before earnings. All plotted expiries had negative skew on August 27, and short-dated smile curvature rose sharply.
+- ATM IV was higher near the August 26 close than on August 25 and fell at the August 27 open. The shortest expiries showed the largest changes.
+- For the August 28 expiry, ATM smile curvature rose from about **4.91** before earnings to **33.79** at 09:35. Curvature is the second derivative of IV with respect to log-forward moneyness.
 - At a matched expiry, the drop in total variance reflects both the removal of earnings risk and the passage of variance time. The pre/post estimator subtracts the estimated normal decay.
 
 ### Implied earnings move | Pre/Post vs. OLS
 
 ![Short-maturity and full-range comparisons of pre/post estimates, OLS, and the realized NVDA jump](assets/nvda-august-implied-earnings-move.png)
 
-- The August 26 close OLS fit implied a move of about **6.83%**. The shortest matched expiry's pre/post estimate was about **6.79%**.
+- The August 26 close OLS fit implied a move of about **6.83%**. Using the August 27 09:35 snapshot, the shortest matched expiry's pre/post estimate was about **6.42%**.
 - NVDA's August 26 close to August 27 open log return was **+6.11%**. The implied estimates exceeded this one realized move. Establishing a repeatable premium or strategy P&L requires more events and executable prices.
 
 ## Reproduce
@@ -44,20 +44,23 @@ $python = (Resolve-Path ".\.venv-event-vol\Scripts\python.exe").Path
 
 ### 2. Prepare the Databento inputs
 
-For each of **2026-08-25, 2026-08-26, and 2026-08-27**, the notebook expects these three files. Replace `<date>` with each session date.
+The notebook uses the close windows on **2026-08-25 and 2026-08-26** and the opening window on **2026-08-27**. Contract definitions are required for all three dates.
 
 | Dataset and schema | Symbol | Required file in `data/raw/` | Window per date |
 | --- | --- | --- | --- |
-| `OPRA.PILLAR` / `cbbo-1m` | `NVDA.OPT` | `NVDA_opra.pillar_cbbo-1m_<date>.dbn.zst` | 15:30–16:00 ET (19:30–20:00 UTC) |
+| `OPRA.PILLAR` / `cbbo-1m` | `NVDA.OPT` | `NVDA_opra.pillar_cbbo-1m_<date>.dbn.zst` | Aug 25–26 close window, 15:30–16:00 ET |
 | `OPRA.PILLAR` / `definition` | `NVDA.OPT` | `NVDA_opra.pillar_definition_<date>.dbn.zst` | 00:00 UTC through 00:00 UTC the next day |
-| `EQUS.MINI` / `bbo-1m` | `NVDA` | `NVDA_equs.mini_bbo-1m_<date>.dbn.zst` | 15:30–16:00 ET (19:30–20:00 UTC) |
+| `EQUS.MINI` / `bbo-1m` | `NVDA` | `NVDA_equs.mini_bbo-1m_<date>.dbn.zst` | Aug 25–26 close window, 15:30–16:00 ET |
+| `OPRA.PILLAR` / `cbbo-1m` | `NVDA.OPT` | `NVDA_opra.pillar_cbbo-1m_2026-08-27_open_30m.dbn.zst` | Aug 27 open window, 09:31–10:00 ET snapshot timestamps |
+| `EQUS.MINI` / `bbo-1m` | `NVDA` | `NVDA_equs.mini_bbo-1m_2026-08-27_open_30m.dbn.zst` | Aug 27 open window, 09:31–10:00 ET snapshot timestamps |
 
 If you need the files, copy `.env.example` to `.env` and set `DATABENTO_API_KEY` locally. The downloader estimates costs and asks for confirmation before downloading missing files. Append `--dry-run` to estimate costs only.
 
 ```powershell
-foreach ($day in "2026-08-25", "2026-08-26", "2026-08-27") {
+foreach ($day in "2026-08-25", "2026-08-26") {
     & $python -m helpers.download_data $day
 }
+& $python -m helpers.download_data 2026-08-27 --window open
 ```
 
 ### 3. Prepare the Yahoo Finance daily bars
@@ -104,13 +107,7 @@ delta-hedged P&L, and reconcile the Greek and Vega attribution.
 Use `helpers.event_backtest` for earnings released after the regular close.
 The example replays upside- and downside-target short straddles, a bullish
 risk reversal, and equal-width call butterflies at both implied-move targets.
-It uses the T−1 and T close windows and the T+1 open window. To prepare the
-additional opening quotes for this example, use the downloader below. It
-reuses the August 27 definition file from step 2.
-
-```powershell
-& $python -m helpers.download_data 2026-08-27 --ticker NVDA --window open
-```
+It uses the same T−1 and T close windows and T+1 open window downloaded in step 2.
 
 Run the example from the command line with the following command. Pass
 `--event` more than once to replay multiple dates.
@@ -123,8 +120,10 @@ Run the example from the command line with the following command. Pass
   fees, and total and earnings-gap attribution. `legs.csv` records the contracts,
   signed quantities, fills, and individual attribution. `summary.csv` groups priced
   trades by event, strategy, expiry, and entry time.
-- The default entries are 30 and 15 minutes before T−1 and T close. The exit is
-  the first common executable minute in the first half-hour of T+1. Buys cross
+- The default entries are 30 and 15 minutes before T−1 and T close. The first
+  T+1 gap mark is at or after **09:35 ET**, and the exit is the first common
+  executable minute between **09:35 and 10:00 ET**. Use `--exit-minutes 1` to start
+  at 09:31 ET. Buys cross
   the ask and sells cross the bid, sized to the leg ratio. Butterfly wings are
   symmetric around the selected strike. The default target wing width is
   `center * sinh(implied_move)`; `--wing-width` requires an exact width in USD.

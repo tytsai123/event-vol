@@ -198,6 +198,28 @@ def extract_atm_features(surface_df, cutoff=.10, spread_floor=.005):
     return out
 
 
+def latest_snapshot(atm_df, cutoff=None, method='quadratic'):
+    """Return all expiries from the latest valid same-minute ATM snapshot.
+
+    ATM rows are fitted from quotes at each (ts_recv, expiration) cross-section,
+    so expiries must come from one shared timestamp rather than independently
+    selected per-instrument last quotes. A timestamp is eligible when its
+    selected total variance is present, and, if supplied, it is at or before
+    the timezone-aware cutoff.
+    """
+    variance_col = f'total_variance_{method}'
+    eligible = atm_df.loc[atm_df[variance_col].notna()]
+    if cutoff is not None:
+        cutoff = pd.Timestamp(cutoff)
+        if cutoff.tzinfo is None:
+            raise ValueError('cutoff must be timezone-aware')
+        eligible = eligible.loc[eligible['ts_recv'] <= cutoff]
+    if eligible.empty:
+        raise ValueError('No eligible ATM snapshot rows')
+    latest_ts = eligible['ts_recv'].max()
+    return atm_df.loc[atm_df['ts_recv'] == latest_ts].copy()
+
+
 def run_pipeline(date, ticker='NVDA', data_dir='data/raw', *, rate=.04, off_hour_weight=.4, forward_cutoff=.10, atm_cutoff=.10, iv_spread_floor=.005, progress=True, calendar='NYSE', raw_data=None, schedule=None):
     """Return a dict of intermediate frames and diagnostics; raw_data optional for testing."""
     q,d,e=load_data(date,ticker,data_dir) if raw_data is None else raw_data

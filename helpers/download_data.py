@@ -1,4 +1,4 @@
-"""Download Databento research inputs compatible with helper.load_data()."""
+"""Download Databento research inputs compatible with event_vol_research.load_data()."""
 from pathlib import Path
 import math
 import os
@@ -72,7 +72,7 @@ def download_data(date, ticker='NVDA', data_dir='data/raw', *,
     if client is None:
         import databento as db
         from dotenv import load_dotenv
-        load_dotenv(Path(__file__).resolve().parent / '.env', override=False)
+        load_dotenv(Path(__file__).resolve().parents[1] / '.env', override=False)
         key = os.getenv('DATABENTO_API_KEY')
         if not key:
             raise RuntimeError('Set DATABENTO_API_KEY in .env or environment')
@@ -113,7 +113,7 @@ def download_data(date, ticker='NVDA', data_dir='data/raw', *,
     return pd.DataFrame(rows)
 
 
-if __name__ == '__main__':
+def main():
     import argparse
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('date')
@@ -127,3 +127,7 @@ if __name__ == '__main__':
     print(download_data(args.date, args.ticker, args.data_dir, confirm=not args.yes,
                         dry_run=args.dry_run, max_cost=args.max_cost,
                         window=args.window).to_string(index=False))
+
+
+if __name__ == '__main__':
+    main()

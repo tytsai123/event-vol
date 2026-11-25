@@ -8,9 +8,10 @@ import numpy as np
 import pandas as pd
 import pandas_market_calendars as mcal
 
-from backtest import Backtest, Strategy, FACTORS, VOL_FACTORS
-from earnings_event import event_sessions
-import helper as h
+ROOT = Path(__file__).resolve().parents[1]
+from helpers.backtest import Backtest, Strategy, FACTORS, VOL_FACTORS
+from helpers.earnings_event import event_sessions
+from helpers import event_vol_research as h
 
 
 class Surfaces:
@@ -143,7 +144,7 @@ def main():
     parser.add_argument("--delta-hedge", action="store_true")
     parser.add_argument("--fees", type=float, default=0.0, help="Total round-trip USD per structure.")
     parser.add_argument("--no-vol-breakdown", action="store_true")
-    parser.add_argument("--data-dir", type=Path, default=Path("data/raw"))
+    parser.add_argument("--data-dir", type=Path, default=ROOT / "data" / "raw")
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
     if not np.isfinite(args.max_dte) or args.max_dte <= 0 or not np.isfinite(args.fees) or args.fees < 0:

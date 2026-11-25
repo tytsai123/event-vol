@@ -16,14 +16,14 @@ import pandas_market_calendars as mcal
 from matplotlib import dates as mdates
 from matplotlib.ticker import PercentFormatter
 
-import download_data as dd
-import helper as h
+from . import download_data as dd
+from . import event_vol_research as h
 
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt
 
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 MAX_DTE = 31
 SESSION_LABELS = ("T-1", "T", "T+1")
 COLORS = ("#0056AB", "#B34200", "#82268C")

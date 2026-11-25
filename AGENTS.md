@@ -14,6 +14,10 @@ Develop systematic earnings volatility trading strategies.
 - Never commit raw market data.
 - Ask for approval before git push.
 
+## File Naming
+- Use hyphens (`-`) between words in `.ipynb` filenames.
+- Use underscores (`_`) between words in other filenames.
+
 ## Research Principles
 - Avoid look-ahead bias.
 - Avoid overfitting.

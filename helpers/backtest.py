@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 from scipy.special import ndtr
 
-import helper as h
+from . import event_vol_research as h
 
 FACTORS = ("delta", "gamma", "theta", "vega")
 VOL_FACTORS = ("atm_vol", "skew", "smile", "vol_residual")
@@ -184,7 +184,7 @@ def _select(chain, strategy, move):
 class Backtest:
     """Replay synchronized merged quotes with explicit timestamps and a session calendar.
 
-    Quotes use helper.merge_data's columns. The optional surface callable takes
+    Quotes use event_vol_research.merge_data's columns. The optional surface callable takes
     (UTC timestamp, UTC expiration date) and returns (ATM IV, skew, quadratic
     coefficient, fitted forward), or None. Fit inputs must be point in time.
     """

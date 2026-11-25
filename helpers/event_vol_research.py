@@ -23,7 +23,7 @@ def load_data(date, ticker='NVDA', data_dir='data/raw', *, window='close'):
                  for dataset, schema in [('opra.pillar','cbbo-1m'),
                                          ('opra.pillar','definition'), ('equs.mini','bbo-1m')]]
     elif window == 'open':
-        from download_data import build_requests
+        from .download_data import build_requests
 
         paths = [path for path, _ in build_requests(day, ticker, data_dir, window=window)]
     else:

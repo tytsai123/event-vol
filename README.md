@@ -31,18 +31,18 @@ The charts and variance comparisons use the last valid ATM snapshot available in
 
 ## Reproduce
 
-Run the commands from the repository root. [event-vol.ipynb](event-vol.ipynb) reads local files from `data/raw/`.
+Run the commands from the repository root. [event-vol.ipynb](notebooks/event-vol.ipynb) reads local files from `data/raw/`. The reusable research and backtest modules are under `helpers/`. The executable backtest example is [event-backtest.ipynb](notebooks/event-backtest.ipynb).
 
 ### Replay option strategies
 
-Use `event-backtest.py` for earnings released after the regular close. It reads local
+Use `helpers.event_backtest` for earnings released after the regular close. It reads local
 T−1 and T close-window files and T+1 open-window files. Specify multiple events
 with repeated `--event` flags. The example replays both implied-move short
 straddles, the bullish risk reversal, and equal-width call butterflies centered
 at the two implied-move targets.
 
 ```powershell
-& .\.venv-event-vol\Scripts\python.exe event-backtest.py --ticker NVDA --event 2026-08-26 --strategy straddle --strategy risk-reversal --strategy butterfly --center up --center down --delta-hedge --output-dir experiments/nvda-backtest
+& .\.venv-event-vol\Scripts\python.exe -m helpers.event_backtest --ticker NVDA --event 2026-08-26 --strategy straddle --strategy risk-reversal --strategy butterfly --center up --center down --delta-hedge --output-dir experiments/nvda-backtest
 ```
 
 - `trades.csv` records priced and unpriced setups, fill P&L, stock hedge P&L,
@@ -64,7 +64,7 @@ at the two implied-move targets.
   financing and borrow costs. `--fees` sets the additional round-trip USD cost
   per structure.
 
-Run `test_backtest.py` with the same Python environment to check multi-leg
+Run `& $python -m tests.test_backtest` with the same Python environment to check multi-leg
 fills, butterfly sizing, stock hedge P&L, and attribution reconciliation.
 
 ### 1. Create the environment
@@ -90,7 +90,7 @@ If you need the files, copy `.env.example` to `.env` and set `DATABENTO_API_KEY`
 
 ```powershell
 foreach ($day in "2026-08-25", "2026-08-26", "2026-08-27") {
-    & $python .\download_data.py $day
+    & $python -m helpers.download_data $day
 }
 ```
 
@@ -125,7 +125,7 @@ bars.to_csv(path)
 
 ### 4. Run the analysis
 
-Open [event-vol.ipynb](event-vol.ipynb), select **Python 3.13 (Event Vol)**, and run the cells from top to bottom. The notebook builds the quote-derived estimates first, then plots the term structures, decomposes event variance, and compares the pre/post and OLS estimates with the realized jump. Run `& $python .\test_helper.py` to check the synthetic pipeline, IV inversion, plots, and event-aware regression.
+Open [event-vol.ipynb](notebooks/event-vol.ipynb), select **Python 3.13 (Event Vol)**, and run the cells from top to bottom. The notebook builds the quote-derived estimates first, then plots the term structures, decomposes event variance, and compares the pre/post and OLS estimates with the realized jump. Run `& $python -m tests.test_helper` to check the synthetic pipeline, IV inversion, plots, and event-aware regression.
 
 ## Research Log
 

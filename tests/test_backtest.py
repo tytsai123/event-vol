@@ -3,8 +3,8 @@
 import numpy as np
 import pandas as pd
 
-from backtest import Backtest, Strategy, VOL_FACTORS, split_vega
-import helper as h
+from helpers.backtest import Backtest, Strategy, VOL_FACTORS, split_vega
+from helpers import event_vol_research as h
 
 
 def test_replays():
